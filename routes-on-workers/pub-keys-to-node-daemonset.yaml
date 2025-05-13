@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: root-ssh-manager
+  namespace: kube-system
+  labels:
+    app: copy-pubkey
+spec:
+  selector:
+    matchLabels:
+      app: copy-pubkey
+  template:
+    metadata:
+      labels:
+        app: copy-pubkey
+    spec:
+      hostPID: true
+      containers:
+      - name: copy-key
+        image: busybox:1.35
+        securityContext:
+          privileged: true
+        command:
+        - sh
+        - -c
+        - |
+          mkdir -p /host-root/root/.ssh
+          cp /pubkeys/authorized_keys /host-root/root/.ssh/authorized_keys
+          chmod 700 /host-root/root/.ssh
+          chmod 600 /host-root/root/.ssh/authorized_keys
+          echo "[INFO] Key copied to /root/.ssh/authorized_keys"
+          sleep 3600
+        volumeMounts:
+        - name: pubkeys
+          mountPath: /pubkeys
+        - name: rootfs
+          mountPath: /host-root
+          mountPropagation: Bidirectional
+      volumes:
+      - name: pubkeys
+        configMap:
+          name: root-ssh-pubkeys
+      - name: rootfs
+        hostPath:
+          path: /
+          type: Directory
